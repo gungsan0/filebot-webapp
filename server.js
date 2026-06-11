@@ -88,7 +88,7 @@ app.post('/api/scan', async (req, res) => {
 // --- Match files against a datasource to fetch real metadata ---
 app.post('/api/match', async (req, res) => {
   try {
-    const { files = [], source = 'tvmaze', apiKey = '', language = 'en-US' } = req.body;
+    const { files = [], source = 'wikidata', apiKey = '', language = 'en' } = req.body;
     if (!files.length) return res.status(400).json({ error: 'files is required' });
 
     // Resolve sequentially-ish but with bounded concurrency to be polite to APIs.

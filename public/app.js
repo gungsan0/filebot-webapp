@@ -115,23 +115,66 @@ function renderPreviewFromScan() {
 
 // ---- Datasource match ----
 const KEYLESS = ['tvmaze', 'wikidata'];
-$('sourceSelect').addEventListener('change', () => {
-  const needsKey = !KEYLESS.includes($('sourceSelect').value);
+// Where to get an API key for each key-based source.
+const KEY_URLS = {
+  tmdb: 'https://www.themoviedb.org/settings/api',
+  omdb: 'https://www.omdbapi.com/apikey.aspx',
+  kmdb: 'https://www.kmdb.or.kr/info/api/apiDetail/6',
+};
+
+// Per-source API keys persist in the browser (localStorage) — switching the
+// source auto-loads that source's saved key; editing the field auto-saves it.
+const KEYS_STORE = 'fbw_apikeys';
+const LANG_STORE = 'fbw_lang';
+function loadKeys() {
+  try { return JSON.parse(localStorage.getItem(KEYS_STORE)) || {}; } catch { return {}; }
+}
+function saveKeys(keys) {
+  localStorage.setItem(KEYS_STORE, JSON.stringify(keys));
+}
+let apiKeys = loadKeys();
+
+function syncSourceUI() {
+  const source = $('sourceSelect').value;
+  const needsKey = !KEYLESS.includes(source);
   $('apiKeyRow').style.display = needsKey ? 'flex' : 'none';
+  if (needsKey) {
+    $('apiKey').value = apiKeys[source] || '';
+    const link = $('getKeyLink');
+    if (KEY_URLS[source]) { link.href = KEY_URLS[source]; link.style.display = 'inline'; }
+    else link.style.display = 'none';
+  }
+}
+
+$('sourceSelect').addEventListener('change', syncSourceUI);
+
+// Auto-save the key against the currently selected source as it's typed.
+$('apiKey').addEventListener('input', () => {
+  const source = $('sourceSelect').value;
+  if (KEYLESS.includes(source)) return;
+  apiKeys[source] = $('apiKey').value.trim();
+  saveKeys(apiKeys);
 });
+
+// Remember the chosen language across sessions.
+const savedLang = localStorage.getItem(LANG_STORE);
+if (savedLang) $('langSelect').value = savedLang;
+$('langSelect').addEventListener('change', () => localStorage.setItem(LANG_STORE, $('langSelect').value));
+
+syncSourceUI();
 
 $('matchBtn').addEventListener('click', async () => {
   if (!scannedFiles.length) return setStatus('matchStatus', '먼저 폴더를 스캔하세요.', 'err');
   const source = $('sourceSelect').value;
-  const apiKey = $('apiKey').value.trim();
-  const language = $('langStr').value.trim() || 'en-US';
-  if (!KEYLESS.includes(source) && !apiKey) return setStatus('matchStatus', '이 데이터소스는 API 키가 필요합니다.', 'err');
+  const apiKey = KEYLESS.includes(source) ? '' : (apiKeys[source] || $('apiKey').value.trim());
+  const language = $('langSelect').value;
+  if (!KEYLESS.includes(source) && !apiKey) return setStatus('matchStatus', '이 데이터소스는 API 키가 필요합니다. 위에 키를 입력하세요.', 'err');
   setStatus('matchStatus', '데이터소스 조회 중…');
   try {
     const data = await api('/api/match', { files: scannedFiles, source, apiKey, language });
     scannedFiles = data.files;
     renderPreviewFromScan();
-    setStatus('matchStatus', `${data.matched}/${data.count}개 매칭됨 (${data.source}).`, 'ok');
+    setStatus('matchStatus', `${data.matched}/${data.count}개 매칭됨 (${data.source}, ${language}).`, 'ok');
   } catch (e) {
     setStatus('matchStatus', '매칭 실패: ' + e.message, 'err');
   }

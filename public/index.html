@@ -29,17 +29,27 @@
       <div class="row">
         <label class="fieldlabel">소스</label>
         <select id="sourceSelect">
-          <option value="wikidata">Wikidata (키 불필요 · 영화+TV)</option>
+          <option value="wikidata">Wikidata (키 불필요 · 영화+TV · 다국어)</option>
           <option value="tvmaze">TVmaze (키 불필요 · TV 에피소드)</option>
-          <option value="tmdb">TheMovieDB (키 필요 · 영화+TV)</option>
+          <option value="tmdb">TheMovieDB (키 필요 · 영화+TV · 다국어)</option>
           <option value="omdb">OMDb (키 필요 · 영화+시리즈)</option>
+          <option value="kmdb">KMDb·영화진흥위원회 (키 필요 · 한국 영화)</option>
         </select>
         <label class="fieldlabel">언어</label>
-        <input id="langStr" type="text" value="en-US" style="max-width:90px" />
+        <select id="langSelect" style="max-width:130px">
+          <option value="en">English</option>
+          <option value="ko">한국어</option>
+          <option value="ja">日本語</option>
+          <option value="zh">中文</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+        </select>
       </div>
       <div class="row" id="apiKeyRow" style="display:none">
         <label class="fieldlabel">API 키</label>
-        <input id="apiKey" type="text" placeholder="데이터소스 API 키" />
+        <input id="apiKey" type="password" placeholder="이 소스의 API 키 (자동 저장됨)" />
+        <a id="getKeyLink" href="#" target="_blank" rel="noopener" class="keylink">키 발급 ↗</a>
       </div>
       <div class="row">
         <button id="matchBtn" class="secondary">메타데이터 가져오기</button>

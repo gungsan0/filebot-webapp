@@ -67,6 +67,8 @@ input[type="text"], select {
 input.mono { font-family: var(--mono); }
 
 .hint { color: var(--muted); font-size: 12px; margin: -4px 0 10px; }
+.keylink { color: var(--accent); font-size: 12px; flex: 0 0 auto; text-decoration: none; white-space: nowrap; }
+.keylink:hover { text-decoration: underline; }
 .opt { color: var(--muted); font-size: 12px; font-weight: 400; }
 .badge.matched { background: var(--accent2); color: #06231a; }
 .badge.unmatched { background: #555; color: #ddd; }
