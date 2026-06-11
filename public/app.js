@@ -84,13 +84,40 @@ $('deletePresetBtn').addEventListener('click', async () => {
 });
 
 // ---- Scan ----
+// Remember the source folder / scan options across sessions.
+const DIR_STORE = 'fbw_scandir';
+const RECURSIVE_STORE = 'fbw_recursive';
+const MEDIATYPE_STORE = 'fbw_mediatype';
+
+const savedDir = localStorage.getItem(DIR_STORE);
+if (savedDir) $('scanDir').value = savedDir;
+if (localStorage.getItem(RECURSIVE_STORE) === 'false') $('recursive').checked = false;
+const savedMediaType = localStorage.getItem(MEDIATYPE_STORE);
+if (savedMediaType) $('mediaType').value = savedMediaType;
+
+$('scanDir').addEventListener('change', () => localStorage.setItem(DIR_STORE, $('scanDir').value.trim()));
+$('recursive').addEventListener('change', () => localStorage.setItem(RECURSIVE_STORE, $('recursive').checked));
+$('mediaType').addEventListener('change', () => {
+  localStorage.setItem(MEDIATYPE_STORE, $('mediaType').value);
+  if (scannedFiles.length) renderPreviewFromScan();
+});
+
+// Effective file type: honor the manual movie/drama override, else the
+// filename-detected type. Returns files with `type` set accordingly.
+function typedFiles() {
+  const sel = $('mediaType').value;
+  return scannedFiles.map((f) => ({ ...f, type: sel === 'auto' ? (f.autoType ?? f.type) : sel }));
+}
+
 $('scanBtn').addEventListener('click', async () => {
   const dir = $('scanDir').value.trim();
   if (!dir) return setStatus('scanStatus', '폴더 경로를 입력하세요.', 'err');
+  localStorage.setItem(DIR_STORE, dir);
   setStatus('scanStatus', '스캔 중…');
   try {
     const data = await api('/api/scan', { dir, recursive: $('recursive').checked });
-    scannedFiles = data.files;
+    // Keep the auto-detected type so the override can be toggled back to "auto".
+    scannedFiles = data.files.map((f) => ({ ...f, autoType: f.type }));
     setStatus('scanStatus', `${data.count}개 미디어 파일 발견.`, 'ok');
     renderPreviewFromScan();
   } catch (e) {
@@ -101,9 +128,10 @@ $('scanBtn').addEventListener('click', async () => {
 function renderPreviewFromScan() {
   const tbody = $('previewTable').querySelector('tbody');
   tbody.innerHTML = '';
-  scannedFiles.forEach((f) => {
+  typedFiles().forEach((f) => {
     const tr = document.createElement('tr');
-    const meta = [f.n, f.y && '('+f.y+')', f.s && 'S'+f.s, f.e && 'E'+f.e, f.t].filter(Boolean).join(' ');
+    const kind = f.type === 'episode' ? '드라마' : '영화';
+    const meta = [kind + ':', f.n, f.y && '('+f.y+')', f.s && 'S'+f.s, f.e && 'E'+f.e, f.t].filter(Boolean).join(' ');
     let badge = '<span class="badge ready">scanned</span>';
     if (f.matched === true) badge = `<span class="badge matched">✓ ${esc(f.source || 'matched')}</span>`;
     else if (f.matched === false) badge = '<span class="badge unmatched">no match</span>';
@@ -171,7 +199,7 @@ $('matchBtn').addEventListener('click', async () => {
   if (!KEYLESS.includes(source) && !apiKey) return setStatus('matchStatus', '이 데이터소스는 API 키가 필요합니다. 위에 키를 입력하세요.', 'err');
   setStatus('matchStatus', '데이터소스 조회 중…');
   try {
-    const data = await api('/api/match', { files: scannedFiles, source, apiKey, language });
+    const data = await api('/api/match', { files: typedFiles(), source, apiKey, language });
     scannedFiles = data.files;
     renderPreviewFromScan();
     setStatus('matchStatus', `${data.matched}/${data.count}개 매칭됨 (${data.source}, ${language}).`, 'ok');
@@ -188,7 +216,7 @@ async function doPreview() {
   const format = $('formatStr').value.trim();
   if (!format) return setStatus('previewStatus', '포맷을 입력하세요.', 'err');
   const type = $('presetType').value;
-  const files = scannedFiles.filter((f) => f.type === type || type === 'any');
+  const files = typedFiles().filter((f) => f.type === type || type === 'any');
   try {
     const data = await api('/api/preview', { files, format, destRoot: $('destRoot').value.trim() });
     previewOps = data.ops;

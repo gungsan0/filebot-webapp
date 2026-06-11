@@ -20,6 +20,15 @@
         <label class="chk"><input id="recursive" type="checkbox" checked /> 하위 폴더 포함</label>
         <button id="scanBtn">스캔</button>
       </div>
+      <div class="row">
+        <label class="fieldlabel">미디어 종류</label>
+        <select id="mediaType" style="max-width:160px">
+          <option value="auto">자동 감지</option>
+          <option value="movie">영화</option>
+          <option value="episode">드라마 / TV</option>
+        </select>
+        <span class="hint" style="margin:0">파일명으로 구분이 안 되는 드라마는 "드라마/TV"로 강제하세요</span>
+      </div>
       <div id="scanStatus" class="status"></div>
     </section>
 
