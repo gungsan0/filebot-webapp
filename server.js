@@ -3,9 +3,15 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import dns from 'node:dns';
+
+// Some networks hang on IPv6 connect attempts before falling back; prefer IPv4
+// so datasource lookups (TVmaze/TMDB/OMDb) connect reliably.
+dns.setDefaultResultOrder('ipv4first');
 
 import { parseFilename } from './lib/parse.js';
 import { formatName, sanitizePath } from './lib/format.js';
+import { matchFile } from './lib/datasources.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 7420;
@@ -76,6 +82,31 @@ app.post('/api/scan', async (req, res) => {
     res.json({ dir, count: files.length, files });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Match files against a datasource to fetch real metadata ---
+app.post('/api/match', async (req, res) => {
+  try {
+    const { files = [], source = 'tvmaze', apiKey = '', language = 'en-US' } = req.body;
+    if (!files.length) return res.status(400).json({ error: 'files is required' });
+
+    // Resolve sequentially-ish but with bounded concurrency to be polite to APIs.
+    const CONCURRENCY = 4;
+    const out = new Array(files.length);
+    let cursor = 0;
+    async function worker() {
+      while (cursor < files.length) {
+        const i = cursor++;
+        out[i] = await matchFile(files[i], source, apiKey, language);
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, files.length) }, worker));
+
+    const matched = out.filter((f) => f.matched).length;
+    res.json({ source, matched, count: out.length, files: out });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

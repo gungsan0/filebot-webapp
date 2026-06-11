@@ -103,12 +103,38 @@ function renderPreviewFromScan() {
   tbody.innerHTML = '';
   scannedFiles.forEach((f) => {
     const tr = document.createElement('tr');
+    const meta = [f.n, f.y && '('+f.y+')', f.s && 'S'+f.s, f.e && 'E'+f.e, f.t].filter(Boolean).join(' ');
+    let badge = '<span class="badge ready">scanned</span>';
+    if (f.matched === true) badge = `<span class="badge matched">✓ ${esc(f.source || 'matched')}</span>`;
+    else if (f.matched === false) badge = '<span class="badge unmatched">no match</span>';
     tr.innerHTML = `<td class="mono">${esc(f.filename)}</td><td class="arrow"></td>
-      <td class="toName">${esc([f.n, f.y && '('+f.y+')', f.s && 'S'+f.s, f.e && 'E'+f.e].filter(Boolean).join(' '))}</td>
-      <td><span class="badge ready">scanned</span></td>`;
+      <td class="toName">${esc(meta)}</td><td>${badge}</td>`;
     tbody.appendChild(tr);
   });
 }
+
+// ---- Datasource match ----
+$('sourceSelect').addEventListener('change', () => {
+  const needsKey = $('sourceSelect').value !== 'tvmaze';
+  $('apiKeyRow').style.display = needsKey ? 'flex' : 'none';
+});
+
+$('matchBtn').addEventListener('click', async () => {
+  if (!scannedFiles.length) return setStatus('matchStatus', '먼저 폴더를 스캔하세요.', 'err');
+  const source = $('sourceSelect').value;
+  const apiKey = $('apiKey').value.trim();
+  const language = $('langStr').value.trim() || 'en-US';
+  if (source !== 'tvmaze' && !apiKey) return setStatus('matchStatus', '이 데이터소스는 API 키가 필요합니다.', 'err');
+  setStatus('matchStatus', '데이터소스 조회 중…');
+  try {
+    const data = await api('/api/match', { files: scannedFiles, source, apiKey, language });
+    scannedFiles = data.files;
+    renderPreviewFromScan();
+    setStatus('matchStatus', `${data.matched}/${data.count}개 매칭됨 (${data.source}).`, 'ok');
+  } catch (e) {
+    setStatus('matchStatus', '매칭 실패: ' + e.message, 'err');
+  }
+});
 
 // ---- Preview ----
 $('previewBtn').addEventListener('click', doPreview);

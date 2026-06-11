@@ -66,6 +66,10 @@ input[type="text"], select {
 }
 input.mono { font-family: var(--mono); }
 
+.hint { color: var(--muted); font-size: 12px; margin: -4px 0 10px; }
+.opt { color: var(--muted); font-size: 12px; font-weight: 400; }
+.badge.matched { background: var(--accent2); color: #06231a; }
+.badge.unmatched { background: #555; color: #ddd; }
 .fieldlabel { color: var(--muted); font-size: 12px; flex: 0 0 auto; min-width: 56px; }
 .chk { flex: 0 0 auto; color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .chk input { flex: 0 0 auto; }

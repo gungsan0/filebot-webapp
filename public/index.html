@@ -24,7 +24,30 @@
     </section>
 
     <section class="panel">
-      <h2>2. 프리셋 &amp; 포맷</h2>
+      <h2>2. 데이터소스 매칭 <span class="opt">(선택)</span></h2>
+      <p class="hint">파일봇처럼 외부 DB에서 정확한 제목·연도·에피소드 제목을 불러옵니다. 건너뛰면 파일명에서 추출한 값을 그대로 씁니다.</p>
+      <div class="row">
+        <label class="fieldlabel">소스</label>
+        <select id="sourceSelect">
+          <option value="tvmaze">TVmaze (키 불필요 · TV)</option>
+          <option value="tmdb">TheMovieDB (키 필요 · 영화+TV)</option>
+          <option value="omdb">OMDb (키 필요 · 영화+시리즈)</option>
+        </select>
+        <label class="fieldlabel">언어</label>
+        <input id="langStr" type="text" value="en-US" style="max-width:90px" />
+      </div>
+      <div class="row" id="apiKeyRow" style="display:none">
+        <label class="fieldlabel">API 키</label>
+        <input id="apiKey" type="text" placeholder="데이터소스 API 키" />
+      </div>
+      <div class="row">
+        <button id="matchBtn" class="secondary">메타데이터 가져오기</button>
+        <span id="matchStatus" class="status"></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>3. 프리셋 &amp; 포맷</h2>
       <div class="row">
         <select id="presetSelect"></select>
         <button id="newPresetBtn" class="secondary">+ 새 프리셋</button>
@@ -65,7 +88,7 @@
     </section>
 
     <section class="panel">
-      <h2>3. 미리보기 &amp; 실행</h2>
+      <h2>4. 미리보기 &amp; 실행</h2>
       <div class="row">
         <button id="previewBtn">미리보기</button>
         <select id="actionSelect">
