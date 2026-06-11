@@ -114,8 +114,9 @@ function renderPreviewFromScan() {
 }
 
 // ---- Datasource match ----
+const KEYLESS = ['tvmaze', 'wikidata'];
 $('sourceSelect').addEventListener('change', () => {
-  const needsKey = $('sourceSelect').value !== 'tvmaze';
+  const needsKey = !KEYLESS.includes($('sourceSelect').value);
   $('apiKeyRow').style.display = needsKey ? 'flex' : 'none';
 });
 
@@ -124,7 +125,7 @@ $('matchBtn').addEventListener('click', async () => {
   const source = $('sourceSelect').value;
   const apiKey = $('apiKey').value.trim();
   const language = $('langStr').value.trim() || 'en-US';
-  if (source !== 'tvmaze' && !apiKey) return setStatus('matchStatus', '이 데이터소스는 API 키가 필요합니다.', 'err');
+  if (!KEYLESS.includes(source) && !apiKey) return setStatus('matchStatus', '이 데이터소스는 API 키가 필요합니다.', 'err');
   setStatus('matchStatus', '데이터소스 조회 중…');
   try {
     const data = await api('/api/match', { files: scannedFiles, source, apiKey, language });
