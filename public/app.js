@@ -1,0 +1,172 @@
+// FileBot WebApp — client logic.
+
+const $ = (id) => document.getElementById(id);
+const api = async (url, body) => {
+  const res = await fetch(url, {
+    method: body ? (url === '/api/presets' ? 'PUT' : 'POST') : 'GET',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+};
+
+let presets = [];
+let scannedFiles = [];
+let previewOps = [];
+
+// ---- Presets ----
+async function loadPresets() {
+  presets = await api('/api/presets');
+  const sel = $('presetSelect');
+  sel.innerHTML = '';
+  presets.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${p.name} (${p.type})`;
+    sel.appendChild(opt);
+  });
+  if (presets.length) applyPresetToForm(0);
+}
+
+function applyPresetToForm(i) {
+  const p = presets[i];
+  if (!p) return;
+  $('presetSelect').value = i;
+  $('presetName').value = p.name;
+  $('presetType').value = p.type;
+  $('formatStr').value = p.format;
+}
+
+$('presetSelect').addEventListener('change', (e) => applyPresetToForm(+e.target.value));
+
+$('newPresetBtn').addEventListener('click', () => {
+  presets.push({ id: 'custom-' + Date.now(), name: '새 프리셋', type: 'movie', format: '{n} ({y})' });
+  loadPresetsUiKeepLast();
+});
+function loadPresetsUiKeepLast() {
+  const sel = $('presetSelect');
+  sel.innerHTML = '';
+  presets.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${p.name} (${p.type})`;
+    sel.appendChild(opt);
+  });
+  applyPresetToForm(presets.length - 1);
+}
+
+$('savePresetBtn').addEventListener('click', async () => {
+  const i = +$('presetSelect').value;
+  if (!presets[i]) return;
+  presets[i] = {
+    id: presets[i].id || 'custom-' + Date.now(),
+    name: $('presetName').value.trim() || '이름없음',
+    type: $('presetType').value,
+    format: $('formatStr').value,
+  };
+  try {
+    await api('/api/presets', presets);
+    await loadPresets();
+    setStatus('previewStatus', '프리셋 저장됨.', 'ok');
+  } catch (e) {
+    setStatus('previewStatus', '저장 실패: ' + e.message, 'err');
+  }
+});
+
+$('deletePresetBtn').addEventListener('click', async () => {
+  const i = +$('presetSelect').value;
+  if (!presets[i]) return;
+  presets.splice(i, 1);
+  await api('/api/presets', presets);
+  await loadPresets();
+});
+
+// ---- Scan ----
+$('scanBtn').addEventListener('click', async () => {
+  const dir = $('scanDir').value.trim();
+  if (!dir) return setStatus('scanStatus', '폴더 경로를 입력하세요.', 'err');
+  setStatus('scanStatus', '스캔 중…');
+  try {
+    const data = await api('/api/scan', { dir, recursive: $('recursive').checked });
+    scannedFiles = data.files;
+    setStatus('scanStatus', `${data.count}개 미디어 파일 발견.`, 'ok');
+    renderPreviewFromScan();
+  } catch (e) {
+    setStatus('scanStatus', '스캔 실패: ' + e.message, 'err');
+  }
+});
+
+function renderPreviewFromScan() {
+  const tbody = $('previewTable').querySelector('tbody');
+  tbody.innerHTML = '';
+  scannedFiles.forEach((f) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="mono">${esc(f.filename)}</td><td class="arrow"></td>
+      <td class="toName">${esc([f.n, f.y && '('+f.y+')', f.s && 'S'+f.s, f.e && 'E'+f.e].filter(Boolean).join(' '))}</td>
+      <td><span class="badge ready">scanned</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ---- Preview ----
+$('previewBtn').addEventListener('click', doPreview);
+
+async function doPreview() {
+  if (!scannedFiles.length) return setStatus('previewStatus', '먼저 폴더를 스캔하세요.', 'err');
+  const format = $('formatStr').value.trim();
+  if (!format) return setStatus('previewStatus', '포맷을 입력하세요.', 'err');
+  const type = $('presetType').value;
+  const files = scannedFiles.filter((f) => f.type === type || type === 'any');
+  try {
+    const data = await api('/api/preview', { files, format, destRoot: $('destRoot').value.trim() });
+    previewOps = data.ops;
+    renderOps(previewOps.map((o) => ({ ...o, status: o.ok ? 'ready' : 'skipped' })));
+    setStatus('previewStatus', `${previewOps.length}개 파일 미리보기 (타입: ${type}).`, 'ok');
+  } catch (e) {
+    setStatus('previewStatus', '미리보기 실패: ' + e.message, 'err');
+  }
+}
+
+// ---- Rename ----
+$('renameBtn').addEventListener('click', async () => {
+  if (!previewOps.length) return setStatus('previewStatus', '먼저 미리보기를 실행하세요.', 'err');
+  const action = $('actionSelect').value;
+  setStatus('previewStatus', '실행 중…');
+  try {
+    const data = await api('/api/rename', { ops: previewOps.filter((o) => o.ok), action });
+    renderOps(data.results);
+    const s = data.summary;
+    setStatus('previewStatus', '완료: ' + Object.entries(s).map(([k, v]) => `${k} ${v}`).join(', '), 'ok');
+  } catch (e) {
+    setStatus('previewStatus', '실행 실패: ' + e.message, 'err');
+  }
+});
+
+function renderOps(ops) {
+  const tbody = $('previewTable').querySelector('tbody');
+  tbody.innerHTML = '';
+  ops.forEach((o) => {
+    const tr = document.createElement('tr');
+    const status = o.status || 'ready';
+    tr.innerHTML = `<td class="mono">${esc(o.fromName || '')}</td>
+      <td class="arrow">→</td>
+      <td class="toName">${esc(o.toName || o.to || '')}</td>
+      <td><span class="badge ${status}">${status}</span>${o.reason ? ' <span style="color:#9aa3ad">('+esc(o.reason)+')</span>' : ''}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ---- helpers ----
+function setStatus(id, msg, cls = '') {
+  const el = $(id);
+  el.textContent = msg;
+  el.className = 'status ' + cls;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+$('footerInfo').textContent = 'FileBot WebApp · 로컬 미디어 파일 리네이머';
+loadPresets();

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "plex-movie",
+    "name": "Plex Movie",
+    "type": "movie",
+    "format": "Movie/{n} ({y})/{n} ({y}) [{vf}, {vc}, {ac}]"
+  },
+  {
+    "id": "plex-movie-simple",
+    "name": "Plex Movie (simple)",
+    "type": "movie",
+    "format": "Movie/{n} ({y})/{n} ({y})"
+  },
+  {
+    "id": "plex-series",
+    "name": "Plex Series",
+    "type": "episode",
+    "format": "Series/{n}/Season {s}/{n} - S{s.pad(2)}E{e.pad(2)} - {t}"
+  },
+  {
+    "id": "plex-series-notitle",
+    "name": "Plex Series (no episode title)",
+    "type": "episode",
+    "format": "Series/{n}/Season {s}/{n} - S{s.pad(2)}E{e.pad(2)}"
+  },
+  {
+    "id": "plex-animation",
+    "name": "Plex Animation",
+    "type": "movie",
+    "format": "Animation/{n} ({y})/{n} ({y}) [{vf}, {vc}, {ac}]"
+  }
+]

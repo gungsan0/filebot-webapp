@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FileBot WebApp — Media Renamer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>🎬 FileBot WebApp</h1>
+    <p class="sub">스캔 → 메타데이터 매칭 → 프리셋 적용 → 미리보기 → 리네임</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>1. 소스 폴더 스캔</h2>
+      <div class="row">
+        <input id="scanDir" type="text" placeholder="예: ~/Downloads 또는 /Volumes/..." />
+        <label class="chk"><input id="recursive" type="checkbox" checked /> 하위 폴더 포함</label>
+        <button id="scanBtn">스캔</button>
+      </div>
+      <div id="scanStatus" class="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>2. 프리셋 &amp; 포맷</h2>
+      <div class="row">
+        <select id="presetSelect"></select>
+        <button id="newPresetBtn" class="secondary">+ 새 프리셋</button>
+        <button id="savePresetBtn" class="secondary">프리셋 저장</button>
+        <button id="deletePresetBtn" class="danger">삭제</button>
+      </div>
+      <div class="row">
+        <label class="fieldlabel">이름</label>
+        <input id="presetName" type="text" placeholder="프리셋 이름" />
+        <label class="fieldlabel">타입</label>
+        <select id="presetType">
+          <option value="movie">movie</option>
+          <option value="episode">episode</option>
+        </select>
+      </div>
+      <div class="row">
+        <label class="fieldlabel">포맷</label>
+        <input id="formatStr" type="text" class="mono" placeholder="{n} ({y})/{n} ({y}) [{vf}, {vc}, {ac}]" />
+      </div>
+      <div class="row">
+        <label class="fieldlabel">대상 루트</label>
+        <input id="destRoot" type="text" placeholder="비우면 원본 폴더에서 리네임 / 예: ~/Plex" />
+      </div>
+      <details class="tokens">
+        <summary>사용 가능한 토큰</summary>
+        <code>{n}</code> 제목 ·
+        <code>{y}</code> 연도 ·
+        <code>{s}</code> 시즌 ·
+        <code>{e}</code> 에피소드 ·
+        <code>{t}</code> 에피소드 제목 ·
+        <code>{vf}</code> 해상도 ·
+        <code>{vc}</code> 영상코덱 ·
+        <code>{ac}</code> 오디오코덱
+        <br />
+        메서드: <code>{s.pad(2)}</code> · <code>{n.upper()}</code> · <code>{n.lower()}</code> ·
+        <code>{n.space('.')}</code> · <code>{t.replace('a','b')}</code>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>3. 미리보기 &amp; 실행</h2>
+      <div class="row">
+        <button id="previewBtn">미리보기</button>
+        <select id="actionSelect">
+          <option value="move">이동 (move)</option>
+          <option value="copy">복사 (copy)</option>
+          <option value="dryrun">드라이런 (변경 없음)</option>
+        </select>
+        <button id="renameBtn" class="primary">리네임 실행</button>
+      </div>
+      <div id="previewStatus" class="status"></div>
+      <div class="tablewrap">
+        <table id="previewTable">
+          <thead>
+            <tr><th>현재 이름</th><th>→</th><th>새 경로</th><th>상태</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="footerInfo"></span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
