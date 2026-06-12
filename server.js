@@ -193,6 +193,13 @@ app.post('/api/rename', async (req, res) => {
   res.json({ results, summary });
 });
 
+// Graceful shutdown — lets the packaged (dock-less) app be stopped from the UI.
+app.post('/api/quit', (_req, res) => {
+  res.json({ ok: true });
+  console.log('Shutdown requested via /api/quit');
+  setTimeout(() => process.exit(0), 150);
+});
+
 app.listen(PORT, () => {
   console.log(`FileBot WebApp running at http://localhost:${PORT}`);
 });

@@ -59,13 +59,32 @@ UI 상단 언어 드롭다운에서 **English / 한국어 / 日本語 / 中文 /
 | Plex Series (no episode title) | episode | `Series/{n}/Season {s}/{n} - S{s.pad(2)}E{e.pad(2)}` |
 | Plex Animation | movie | `Animation/{n} ({y})/{n} ({y}) [{vf}, {vc}, {ac}]` |
 
-## 실행
+## 설치 (.pkg, 권장)
+
+[Releases](https://github.com/gungsan0/filebot-webapp/releases) 에서 `FileBotWebApp-<버전>.pkg`를 받아 더블클릭해 설치한다. `/Applications`에 **FileBot WebApp.app**이 설치되고, 실행하면 로컬 서버가 켜지며 브라우저가 자동으로 열린다.
+
+- Node.js를 따로 설치할 필요 없다 — 유니버설 Node 런타임이 앱에 포함되어 Intel·Apple Silicon 모두 동작한다.
+- 종료: 브라우저 화면 하단의 **서버 종료** 버튼(또는 활성 상태 보기에서 종료).
+- 앱은 백그라운드로 동작한다(Dock 아이콘 없음).
+
+> ⚠️ 이 패키지는 공증(notarize)되지 않았다. 첫 실행 시 Gatekeeper가 막으면 앱을 **우클릭 → 열기**, 또는 시스템 설정 → 개인정보 보호 및 보안에서 허용한다.
+
+## 직접 실행 (개발)
 
 ```bash
 npm install
 npm start
 # http://localhost:7420
 ```
+
+## .pkg 직접 빌드
+
+```bash
+npm run build:pkg
+# dist/FileBotWebApp-<버전>.pkg 생성
+```
+
+빌드 스크립트는 앱 파일 + 의존성 + 유니버설 Node 바이너리를 `.app`으로 묶고 `pkgbuild`로 설치 패키지를 만든다. (`scripts/build-pkg.sh`)
 
 포트를 바꾸려면: `PORT=9000 npm start`
 

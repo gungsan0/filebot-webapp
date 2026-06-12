@@ -267,4 +267,11 @@ function esc(s) {
 }
 
 $('footerInfo').textContent = 'FileBot WebApp · 로컬 미디어 파일 리네이머';
+
+$('quitBtn').addEventListener('click', async () => {
+  if (!confirm('서버를 종료할까요? 이 탭은 더 이상 동작하지 않습니다.')) return;
+  try { await fetch('/api/quit', { method: 'POST' }); } catch { /* server exits mid-request */ }
+  document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#9aa3ad">서버가 종료되었습니다. 이 탭을 닫으셔도 됩니다.<br>다시 시작하려면 FileBot WebApp 앱을 실행하세요.</div>';
+});
+
 loadPresets();
