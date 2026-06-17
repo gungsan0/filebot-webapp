@@ -38,9 +38,17 @@ echo "==> Copying application files"
 cp -R server.js lib public presets.json package.json "$RES/app/"
 cp -R node_modules "$RES/app/node_modules"
 
-echo "==> Bundling Node.js runtime ($(node -p "process.version"), universal)"
+echo "==> Bundling Node.js runtime ($(node -p "process.version"))"
 cp "$(command -v node)" "$RES/node"
+# Apple Silicon-native: strip any Intel (x86_64) slice so the app contains no
+# Intel code and won't trip macOS's "Intel app support ending" warning.
+if lipo -archs "$RES/node" 2>/dev/null | grep -q x86_64; then
+  echo "==> Thinning Node to arm64 (Apple Silicon native)"
+  lipo "$RES/node" -thin arm64 -output "$RES/node.arm64"
+  mv "$RES/node.arm64" "$RES/node"
+fi
 chmod +x "$RES/node"
+echo "    node arch: $(lipo -archs "$RES/node")"
 
 echo "==> Writing launcher"
 cat > "$MACOS/launcher" <<'LAUNCH'
