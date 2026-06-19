@@ -15,7 +15,18 @@ import { matchFile } from './lib/datasources.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 7420;
-const PRESETS_FILE = path.join(__dirname, 'presets.json');
+
+// Persist user data outside the app bundle (which is read-only once installed
+// via the .pkg). Survives app updates and is independent of the browser.
+const DATA_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'FileBot WebApp');
+const PRESETS_FILE = path.join(DATA_DIR, 'presets.json');
+const DEFAULT_PRESETS_FILE = path.join(__dirname, 'presets.json'); // shipped defaults
+const FOLDERS_FILE = path.join(DATA_DIR, 'folders.json'); // recently-used source folders
+const MAX_FOLDERS = 12;
+
+async function ensureDataDir() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+}
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -33,8 +44,34 @@ async function readPresets() {
   try {
     return JSON.parse(await fs.readFile(PRESETS_FILE, 'utf8'));
   } catch {
+    // First run: seed the user copy from the defaults shipped in the bundle.
+    try {
+      const def = await fs.readFile(DEFAULT_PRESETS_FILE, 'utf8');
+      await ensureDataDir();
+      await fs.writeFile(PRESETS_FILE, def);
+      return JSON.parse(def);
+    } catch {
+      return [];
+    }
+  }
+}
+
+async function readFolders() {
+  try {
+    const list = JSON.parse(await fs.readFile(FOLDERS_FILE, 'utf8'));
+    return Array.isArray(list) ? list : [];
+  } catch {
     return [];
   }
+}
+
+// Move a folder to the front of the recent list (dedup, capped).
+async function recordFolder(dir) {
+  if (!dir) return;
+  const list = await readFolders();
+  const next = [dir, ...list.filter((d) => d !== dir)].slice(0, MAX_FOLDERS);
+  await ensureDataDir();
+  await fs.writeFile(FOLDERS_FILE, JSON.stringify(next, null, 2));
 }
 
 // --- Presets CRUD ---
@@ -47,8 +84,22 @@ app.put('/api/presets', async (req, res) => {
   if (!Array.isArray(presets)) {
     return res.status(400).json({ error: 'Body must be an array of presets.' });
   }
+  await ensureDataDir();
   await fs.writeFile(PRESETS_FILE, JSON.stringify(presets, null, 2));
   res.json({ ok: true, count: presets.length });
+});
+
+// --- Recent source folders ---
+app.get('/api/folders', async (_req, res) => {
+  res.json(await readFolders());
+});
+
+app.post('/api/folders/forget', async (req, res) => {
+  const { dir } = req.body;
+  const list = (await readFolders()).filter((d) => d !== dir);
+  await ensureDataDir();
+  await fs.writeFile(FOLDERS_FILE, JSON.stringify(list, null, 2));
+  res.json({ ok: true, folders: list });
 });
 
 // --- Scan a directory and parse every media file ---
@@ -79,6 +130,7 @@ app.post('/api/scan', async (req, res) => {
     }
 
     await walk(dir);
+    await recordFolder((req.body.dir || '').trim()); // remember what the user typed
     res.json({ dir, count: files.length, files });
   } catch (err) {
     res.status(500).json({ error: err.message });

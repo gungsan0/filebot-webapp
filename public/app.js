@@ -97,6 +97,33 @@ if (savedMediaType) $('mediaType').value = savedMediaType;
 
 $('scanDir').addEventListener('change', () => localStorage.setItem(DIR_STORE, $('scanDir').value.trim()));
 $('recursive').addEventListener('change', () => localStorage.setItem(RECURSIVE_STORE, $('recursive').checked));
+
+// Recently-used source folders are remembered server-side (survives browser
+// changes and app restarts). Populate the autocomplete + dropdown and prefill.
+async function loadFolders() {
+  let folders = [];
+  try { folders = await api('/api/folders'); } catch { /* ignore */ }
+  $('recentFolders').innerHTML = folders.map((d) => `<option value="${esc(d)}">`).join('');
+  $('recentSelect').innerHTML =
+    '<option value="">— 최근 사용한 폴더 —</option>' + folders.map((d) => `<option>${esc(d)}</option>`).join('');
+  $('recentRow').style.display = folders.length ? 'flex' : 'none';
+  if (!$('scanDir').value.trim() && folders.length) $('scanDir').value = folders[0];
+}
+
+$('recentSelect').addEventListener('change', () => {
+  if ($('recentSelect').value) $('scanDir').value = $('recentSelect').value;
+});
+
+$('forgetFolderBtn').addEventListener('click', async () => {
+  const dir = $('recentSelect').value || $('scanDir').value.trim();
+  if (!dir) return;
+  try {
+    await fetch('/api/folders/forget', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir }),
+    });
+  } catch { /* ignore */ }
+  await loadFolders();
+});
 $('mediaType').addEventListener('change', () => {
   localStorage.setItem(MEDIATYPE_STORE, $('mediaType').value);
   if (scannedFiles.length) renderPreviewFromScan();
@@ -120,6 +147,7 @@ $('scanBtn').addEventListener('click', async () => {
     scannedFiles = data.files.map((f) => ({ ...f, autoType: f.type }));
     setStatus('scanStatus', `${data.count}개 미디어 파일 발견.`, 'ok');
     renderPreviewFromScan();
+    loadFolders(); // refresh the remembered-folder list with this scan
   } catch (e) {
     setStatus('scanStatus', '스캔 실패: ' + e.message, 'err');
   }
@@ -275,3 +303,4 @@ $('quitBtn').addEventListener('click', async () => {
 });
 
 loadPresets();
+loadFolders();
