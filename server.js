@@ -22,7 +22,8 @@ const DATA_DIR = path.join(os.homedir(), 'Library', 'Application Support', 'File
 const PRESETS_FILE = path.join(DATA_DIR, 'presets.json');
 const DEFAULT_PRESETS_FILE = path.join(__dirname, 'presets.json'); // shipped defaults
 const FOLDERS_FILE = path.join(DATA_DIR, 'folders.json'); // recently-used source folders
-const MAX_FOLDERS = 12;
+const DEST_FILE = path.join(DATA_DIR, 'destinations.json'); // recently-used destination roots
+const MAX_RECENT = 12;
 
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -56,22 +57,31 @@ async function readPresets() {
   }
 }
 
-async function readFolders() {
+// Generic "recently-used" list persistence (source folders, destinations, …).
+async function readList(file) {
   try {
-    const list = JSON.parse(await fs.readFile(FOLDERS_FILE, 'utf8'));
+    const list = JSON.parse(await fs.readFile(file, 'utf8'));
     return Array.isArray(list) ? list : [];
   } catch {
     return [];
   }
 }
 
-// Move a folder to the front of the recent list (dedup, capped).
-async function recordFolder(dir) {
-  if (!dir) return;
-  const list = await readFolders();
-  const next = [dir, ...list.filter((d) => d !== dir)].slice(0, MAX_FOLDERS);
+// Move a value to the front of the recent list (dedup, capped).
+async function recordRecent(file, value) {
+  const v = (value || '').trim();
+  if (!v) return;
+  const list = await readList(file);
+  const next = [v, ...list.filter((d) => d !== v)].slice(0, MAX_RECENT);
   await ensureDataDir();
-  await fs.writeFile(FOLDERS_FILE, JSON.stringify(next, null, 2));
+  await fs.writeFile(file, JSON.stringify(next, null, 2));
+}
+
+async function removeRecent(file, value) {
+  const list = (await readList(file)).filter((d) => d !== value);
+  await ensureDataDir();
+  await fs.writeFile(file, JSON.stringify(list, null, 2));
+  return list;
 }
 
 // --- Presets CRUD ---
@@ -91,15 +101,20 @@ app.put('/api/presets', async (req, res) => {
 
 // --- Recent source folders ---
 app.get('/api/folders', async (_req, res) => {
-  res.json(await readFolders());
+  res.json(await readList(FOLDERS_FILE));
 });
 
 app.post('/api/folders/forget', async (req, res) => {
-  const { dir } = req.body;
-  const list = (await readFolders()).filter((d) => d !== dir);
-  await ensureDataDir();
-  await fs.writeFile(FOLDERS_FILE, JSON.stringify(list, null, 2));
-  res.json({ ok: true, folders: list });
+  res.json({ ok: true, folders: await removeRecent(FOLDERS_FILE, req.body.dir) });
+});
+
+// --- Recent destination roots ---
+app.get('/api/destinations', async (_req, res) => {
+  res.json(await readList(DEST_FILE));
+});
+
+app.post('/api/destinations/forget', async (req, res) => {
+  res.json({ ok: true, destinations: await removeRecent(DEST_FILE, req.body.dir) });
 });
 
 // --- Scan a directory and parse every media file ---
@@ -130,7 +145,7 @@ app.post('/api/scan', async (req, res) => {
     }
 
     await walk(dir);
-    await recordFolder((req.body.dir || '').trim()); // remember what the user typed
+    await recordRecent(FOLDERS_FILE, req.body.dir); // remember what the user typed
     res.json({ dir, count: files.length, files });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -163,11 +178,12 @@ app.post('/api/match', async (req, res) => {
 });
 
 // --- Preview new names for a set of files ---
-app.post('/api/preview', (req, res) => {
+app.post('/api/preview', async (req, res) => {
   try {
     const { files = [], format, destRoot = '' } = req.body;
     if (!format) return res.status(400).json({ error: 'format is required' });
     const root = expandHome(destRoot);
+    await recordRecent(DEST_FILE, destRoot); // remember the destination root
 
     const ops = files.map((f) => {
       const meta = { ...f };

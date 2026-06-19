@@ -114,6 +114,14 @@ $('recentSelect').addEventListener('change', () => {
   if ($('recentSelect').value) $('scanDir').value = $('recentSelect').value;
 });
 
+// Remember recently-used destination roots (server-side), prefill the latest.
+async function loadDestinations() {
+  let dests = [];
+  try { dests = await api('/api/destinations'); } catch { /* ignore */ }
+  $('recentDests').innerHTML = dests.map((d) => `<option value="${esc(d)}">`).join('');
+  if (!$('destRoot').value.trim() && dests.length) $('destRoot').value = dests[0];
+}
+
 $('forgetFolderBtn').addEventListener('click', async () => {
   const dir = $('recentSelect').value || $('scanDir').value.trim();
   if (!dir) return;
@@ -250,6 +258,7 @@ async function doPreview() {
     previewOps = data.ops;
     renderOps(previewOps.map((o) => ({ ...o, status: o.ok ? 'ready' : 'skipped' })));
     setStatus('previewStatus', `${previewOps.length}개 파일 미리보기 (타입: ${type}).`, 'ok');
+    loadDestinations(); // remember this destination root
   } catch (e) {
     setStatus('previewStatus', '미리보기 실패: ' + e.message, 'err');
   }
@@ -304,3 +313,4 @@ $('quitBtn').addEventListener('click', async () => {
 
 loadPresets();
 loadFolders();
+loadDestinations();

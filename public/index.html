@@ -95,7 +95,8 @@
       </div>
       <div class="row">
         <label class="fieldlabel">대상 루트</label>
-        <input id="destRoot" type="text" placeholder="비우면 원본 폴더에서 리네임 / 예: ~/Plex" />
+        <input id="destRoot" type="text" list="recentDests" placeholder="비우면 원본 폴더에서 리네임 / 예: ~/Plex" />
+        <datalist id="recentDests"></datalist>
       </div>
       <details class="tokens">
         <summary>사용 가능한 토큰</summary>
