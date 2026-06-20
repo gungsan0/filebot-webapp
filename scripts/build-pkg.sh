@@ -53,27 +53,39 @@ echo "    node arch: $(lipo -archs "$RES/node")"
 echo "==> Writing launcher"
 cat > "$MACOS/launcher" <<'LAUNCH'
 #!/bin/bash
-# Start the bundled server and open the browser. If it's already running,
-# just focus the browser instead of starting a second instance.
+# On every launch: stop any server already running on the port, start a fresh
+# one DETACHED, then open the browser — and exit. Exiting is key: the app never
+# stays "running", so macOS re-runs this launcher each time the user opens the
+# app. (With the old exec-based launcher, closing the browser window left the
+# server running and a relaunch just re-activated the live process without
+# re-running the launcher, so no new window ever opened.)
 DIR="$(cd "$(dirname "$0")/../Resources" && pwd)"
 export PORT="${PORT:-7420}"
 URL="http://localhost:$PORT"
+LOG="$HOME/Library/Logs/FileBot WebApp.log"
+mkdir -p "$HOME/Library/Logs" 2>/dev/null
 
-if /usr/bin/curl -s -o /dev/null --max-time 1 "$URL"; then
-  open "$URL"
-  exit 0
+# Stop any server currently listening on the port (e.g. a stale instance left
+# after the browser window was closed).
+PIDS=$(/usr/sbin/lsof -ti "tcp:$PORT" -sTCP:LISTEN 2>/dev/null)
+if [ -n "$PIDS" ]; then
+  kill $PIDS 2>/dev/null
+  for _ in $(seq 1 25); do
+    /usr/sbin/lsof -ti "tcp:$PORT" -sTCP:LISTEN >/dev/null 2>&1 || break
+    sleep 0.2
+  done
 fi
 
-# Open the browser once the server is accepting connections.
-(
-  for _ in $(seq 1 40); do
-    /usr/bin/curl -s -o /dev/null --max-time 1 "$URL" && break
-    sleep 0.25
-  done
-  open "$URL"
-) &
+# Start the server fully detached (subshell + nohup) so it survives this
+# launcher exiting and is reparented to launchd.
+( nohup "$DIR/node" "$DIR/app/server.js" >"$LOG" 2>&1 & )
 
-exec "$DIR/node" "$DIR/app/server.js"
+# Open the browser once the server is accepting connections.
+for _ in $(seq 1 40); do
+  /usr/bin/curl -s -o /dev/null --max-time 1 "$URL" && break
+  sleep 0.25
+done
+/usr/bin/open "$URL"
 LAUNCH
 chmod +x "$MACOS/launcher"
 
